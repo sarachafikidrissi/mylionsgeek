@@ -12,6 +12,7 @@ use App\Models\AttendanceReminderNotification;
 use App\Models\DisciplineNotification;
 use App\Models\ExerciseReviewNotification;
 use App\Models\PostNotification;
+use App\Models\StoryNotification;
 use App\Models\FollowNotification;
 use App\Models\ProjectSubmissionNotification;
 use App\Models\ProjectStatusNotification;
@@ -420,6 +421,36 @@ class NotificationController extends Controller
                     'created_at' => $notif->created_at->toISOString(),
                     'read_at' => $notif->read_at ? $notif->read_at->toISOString() : null,
                 ];
+            }
+
+            if (Schema::hasTable('story_notifications')) {
+                try {
+                    $storyNotifs = StoryNotification::with(['sender', 'story'])
+                        ->where('user_id', $user->id)
+                        ->orderByDesc('created_at')
+                        ->limit(20)
+                        ->get();
+                    foreach ($storyNotifs as $notif) {
+                        $senderName = $notif->sender ? $notif->sender->name : 'Someone';
+                        $senderImage = $notif->sender ? $notif->sender->image : null;
+                        $senderId = (int) $notif->sender_id;
+                        $notifications[] = [
+                            'id' => 'story-mention-'.$notif->id,
+                            'type' => 'story_mention',
+                            'sender_name' => $senderName,
+                            'sender_image' => $senderImage,
+                            'message' => "{$senderName} mentioned you in a story",
+                            'link' => '/students/feed',
+                            'mobile_link' => '/stories/viewer?startUserId='.$senderId,
+                            'story_id' => (int) $notif->story_id,
+                            'icon_type' => 'at',
+                            'created_at' => $notif->created_at?->toIso8601String() ?? now()->toIso8601String(),
+                            'read_at' => $notif->read_at ? $notif->read_at->toIso8601String() : null,
+                        ];
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Error fetching story mention notifications: '.$e->getMessage());
+                }
             }
 
             // 4.5. POST REPORT NOTIFICATIONS (Staff)
@@ -865,6 +896,18 @@ class NotificationController extends Controller
                         $notification->save();
                     }
                     break;
+                case 'story-mention':
+                case 'story_mention':
+                    if (Schema::hasTable('story_notifications')) {
+                        $notification = StoryNotification::where('id', $id)
+                            ->where('user_id', $user->id)
+                            ->first();
+                        if ($notification) {
+                            $notification->read_at = now();
+                            $notification->save();
+                        }
+                    }
+                    break;
                 case 'exercise-review':
                     $notification = ExerciseReviewNotification::where('id', $id)
                         ->where('coach_id', $user->id)
@@ -1093,6 +1136,12 @@ class NotificationController extends Controller
             PostNotification::where('user_id', $user->id)
                 ->whereNull('read_at')
                 ->update(['read_at' => now()]);
+
+            if (Schema::hasTable('story_notifications')) {
+                StoryNotification::where('user_id', $user->id)
+                    ->whereNull('read_at')
+                    ->update(['read_at' => now()]);
+            }
 
             // Mark all exercise review notifications as read (for coaches)
             ExerciseReviewNotification::where('coach_id', $user->id)

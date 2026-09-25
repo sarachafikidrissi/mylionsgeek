@@ -87,7 +87,7 @@ class GamesController extends Controller
                 'clientId' => (string) $user->id,
             ]);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Failed to generate token: ' . $e->getMessage()], 500);
+            return response()->json(['error' => 'Failed to generate token'], 500);
         }
     }
 

@@ -185,7 +185,7 @@ test('call inbox is only call:user for the authenticated user', function () {
         ->and(h3Keys($capsB))->not->toContain('call:user:*');
 });
 
-test('webrtc capability is only granted for pending or ongoing calls the user is in', function () {
+test('call capabilities do not grant legacy webrtc media channels', function () {
     $caller = h3User(['name' => 'H3 Caller']);
     $callee = h3User(['name' => 'H3 Callee']);
     $stranger = h3User(['name' => 'H3 Stranger']);
@@ -197,13 +197,13 @@ test('webrtc capability is only granted for pending or ongoing calls the user is
         'channel_name' => 'call_h3_live',
         'status' => Call::STATUS_PENDING,
     ]);
-    $ended = Call::query()->create([
+    Call::query()->create([
         'caller_id' => $caller->id,
         'callee_id' => $other->id,
         'channel_name' => 'call_h3_ended',
         'status' => Call::STATUS_ENDED,
     ]);
-    $foreign = Call::query()->create([
+    Call::query()->create([
         'caller_id' => $other->id,
         'callee_id' => $stranger->id,
         'channel_name' => 'call_h3_foreign',
@@ -214,14 +214,13 @@ test('webrtc capability is only granted for pending or ongoing calls the user is
     $capsCallee = h3Caps()->callCapabilities($callee);
     $capsStranger = h3Caps()->callCapabilities($stranger);
 
-    expect($capsCaller)->toHaveKey('webrtc:'.$live->channel_name)
-        ->and($capsCaller['webrtc:'.$live->channel_name])->toBe(['publish', 'subscribe', 'presence'])
-        ->and($capsCallee)->toHaveKey('webrtc:'.$live->channel_name)
-        ->and($capsCaller)->not->toHaveKey('webrtc:'.$ended->channel_name)
-        ->and($capsCaller)->not->toHaveKey('webrtc:'.$foreign->channel_name)
-        ->and($capsStranger)->not->toHaveKey('webrtc:'.$live->channel_name)
+    expect($capsCaller)->toHaveKey('call:user:'.$caller->id)
+        ->and($capsCaller)->not->toHaveKey('webrtc:'.$live->channel_name)
+        ->and($capsCallee)->toHaveKey('call:user:'.$callee->id)
+        ->and($capsCallee)->not->toHaveKey('webrtc:'.$live->channel_name)
         ->and($capsStranger)->toHaveKey('call:user:'.$stranger->id)
-        ->and($capsStranger)->not->toHaveKey('call:user:'.$callee->id);
+        ->and($capsStranger)->not->toHaveKey('call:user:'.$callee->id)
+        ->and(h3Keys($capsCaller))->toBe(['call:user:'.$caller->id]);
 
     h3AssertNoPrivateWildcards($capsCaller);
     h3AssertNoPrivateWildcards($capsStranger);
@@ -245,7 +244,8 @@ test('a user cannot receive another users incoming-call payload or agora token t
     expect($capsA)->not->toHaveKey('call:user:'.$userB->id)
         ->and($capsA)->not->toHaveKey('webrtc:call_h3_b_inbox')
         ->and($capsB)->toHaveKey('call:user:'.$userB->id)
-        ->and($capsB)->toHaveKey('webrtc:call_h3_b_inbox');
+        ->and($capsB)->not->toHaveKey('webrtc:call_h3_b_inbox')
+        ->and(h3Keys($capsB))->toBe(['call:user:'.$userB->id]);
 
     h3AssertNoPrivateWildcards($capsA);
 });
@@ -268,7 +268,8 @@ test('call token ignores client-supplied channel names and user ids', function (
     $capsA = h3Caps()->callCapabilities($userA->fresh());
     expect($capsA)->toHaveKey('call:user:'.$userA->id)
         ->and($capsA)->not->toHaveKey('call:user:'.$userB->id)
-        ->and($capsA)->not->toHaveKey('webrtc:call_injected');
+        ->and($capsA)->not->toHaveKey('webrtc:call_injected')
+        ->and(h3Keys($capsA))->toBe(['call:user:'.$userA->id]);
     h3AssertNoPrivateWildcards($capsA);
 });
 

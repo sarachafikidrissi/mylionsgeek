@@ -96,6 +96,10 @@ class CloseFriendController extends Controller
             return response()->json(['message' => 'Cannot add yourself'], 422);
         }
 
+        if (in_array($friendId, $auth->excludedAuthorIds(), true)) {
+            return response()->json(['message' => 'Not allowed'], 403);
+        }
+
         if (!User::where('id', $friendId)->exists()) {
             return response()->json(['message' => 'User not found'], 404);
         }

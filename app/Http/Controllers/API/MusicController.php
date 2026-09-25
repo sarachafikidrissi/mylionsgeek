@@ -49,6 +49,9 @@ class MusicController extends Controller
         'original' => 'original audio',
     ];
 
+    private const BROWSE_CACHE_TTL_SECONDS = 1200; // 20 minutes for charts / trending
+    private const SEARCH_CACHE_TTL_SECONDS = 300;  // 5 minutes for search
+
     /** Curated Moroccan artists used when Spotify is unavailable. */
     private const MOROCCO_ARTIST_QUERIES = [
         'ElGrandeToto',
@@ -80,19 +83,12 @@ class MusicController extends Controller
             return $user;
         }
 
-        $section = strtolower(trim((string) $request->input('section', 'trending')));
-        $country = strtoupper((string) $request->input('country', 'MA'));
-        $limit   = $this->clampLimit((int) $request->input('limit', 50));
-        $query   = trim((string) $request->input('q', ''));
+        $section = (string) $request->query('section', 'top_morocco');
+        $country = strtoupper((string) $request->query('country', config('services.spotify.market', 'MA')));
+        $limit   = $this->clampLimit((int) $request->query('limit', 50));
+        $query   = trim((string) $request->query('q', ''));
 
-        $cacheKey = "music:browse:{$section}:{$country}:{$limit}:" . md5($query);
-        $ttl      = $section === 'search' && $query !== '' ? now()->addMinutes(15) : now()->addHours(6);
-
-        $payload = Cache::remember($cacheKey, $ttl, function () use ($section, $country, $limit, $query) {
-            return $this->resolveBrowseSection($section, $country, $limit, $query);
-        });
-
-        return response()->json($payload);
+        return response()->json($this->resolveBrowseSection($section, $country, $limit, $query));
     }
 
     /** @deprecated Use browse?section=search */
@@ -103,20 +99,15 @@ class MusicController extends Controller
             return $user;
         }
 
-        $query = trim((string) $request->input('q', ''));
-        $limit = $this->clampLimit((int) $request->input('limit', 50));
+        $query   = trim((string) $request->input('q', ''));
+        $limit   = $this->clampLimit((int) $request->input('limit', 50));
+        $country = strtoupper((string) $request->input('country', config('services.spotify.market', 'MA')));
 
         if ($query === '') {
-            return response()->json($this->emptyPayload('search', 'Search', null));
+            return response()->json($this->emptyPayload('search', 'Search', $country));
         }
 
-        $payload = $this->resolveBrowseSection('search', 'MA', $limit, $query);
-
-        // Legacy shape
-        return response()->json([
-            'source' => $payload['source'],
-            'items'  => $payload['items'],
-        ]);
+        return response()->json($this->loadSearch($query, $limit, $country, 'Search results', $country));
     }
 
     /** @deprecated Use browse?section=top_morocco */
@@ -127,16 +118,10 @@ class MusicController extends Controller
             return $user;
         }
 
-        $country = strtoupper((string) $request->input('country', 'MA'));
+        $country = strtoupper((string) $request->input('country', config('services.spotify.market', 'MA')));
         $limit   = $this->clampLimit((int) $request->input('limit', 50));
-        $payload = $this->resolveBrowseSection('top_morocco', $country, $limit, '');
 
-        return response()->json([
-            'source'  => $payload['source'],
-            'country' => $payload['country'],
-            'title'   => $payload['title'],
-            'items'   => $payload['items'],
-        ]);
+        return response()->json($this->loadTopMorocco($country, $limit));
     }
 
     public function lyrics(Request $request)
@@ -146,34 +131,10 @@ class MusicController extends Controller
             return $user;
         }
 
-        $artist = trim((string) $request->input('artist', ''));
-        $title  = trim((string) $request->input('title', ''));
-        if ($artist === '' && $title === '') {
-            return response()->json(['lyrics' => null, 'source' => 'lyrics.ovh']);
-        }
-
-        $cacheKey = 'lyrics:' . md5(mb_strtolower($artist . '||' . $title));
-        $lyrics = Cache::remember($cacheKey, now()->addHours(12), function () use ($artist, $title) {
-            try {
-                $a = rawurlencode($artist);
-                $t = rawurlencode($title);
-                $response = Http::timeout(self::HTTP_TIMEOUT)
-                    ->acceptJson()
-                    ->get("https://api.lyrics.ovh/v1/{$a}/{$t}");
-                if (!$response->ok()) return null;
-                $body = $response->json();
-                $text = isset($body['lyrics']) && is_string($body['lyrics']) ? trim($body['lyrics']) : null;
-                return $text ? mb_substr($text, 0, 6000) : null;
-            } catch (Throwable $e) {
-                return null;
-            }
-        });
-
         return response()->json([
-            'artist' => $artist,
-            'title'  => $title,
-            'lyrics' => $lyrics,
-            'source' => 'lyrics.ovh',
+            'lyrics' => null,
+            'source' => 'none',
+            'message' => 'Third-party lyrics are not attached to Stories.',
         ]);
     }
 
@@ -181,14 +142,30 @@ class MusicController extends Controller
 
     private function resolveBrowseSection(string $section, string $country, int $limit, string $query): array
     {
+        if ($section === 'search' && $query === '') {
+            return $this->emptyPayload('search', 'Search', $country);
+        }
+
+        $ttl = $section === 'search' ? self::SEARCH_CACHE_TTL_SECONDS : self::BROWSE_CACHE_TTL_SECONDS;
+        $cacheKey = 'music:browse:'.md5(implode('|', [
+            strtolower($section),
+            strtoupper($country),
+            (string) $limit,
+            mb_strtolower($query),
+        ]));
+
+        return Cache::remember($cacheKey, $ttl, function () use ($section, $country, $limit, $query) {
+            return $this->loadBrowseSection($section, $country, $limit, $query);
+        });
+    }
+
+    private function loadBrowseSection(string $section, string $country, int $limit, string $query): array
+    {
         if ($section === 'top_morocco') {
             return $this->loadTopMorocco($country, $limit);
         }
 
         if ($section === 'search') {
-            if ($query === '') {
-                return $this->emptyPayload('search', 'Search', $country);
-            }
             return $this->loadSearch($query, $limit, $country, 'Search results', $country);
         }
 

@@ -87,39 +87,32 @@ class ExpoPushNotificationService
         // notification channel registered in the mobile app so the device
         // rings persistently like a phone call (loud, repeating vibration,
         // bypass Do Not Disturb).
-        $isIncomingCall = isset($data['type']) && $data['type'] === 'incoming_call';
-        $channelId = $isIncomingCall ? 'incoming-calls' : 'default';
-        // Critical iOS APS settings – `interruptionLevel: critical` would
-        // require the Critical Alerts entitlement (production builds only),
-        // so we use `time-sensitive` which works in dev/Expo Go.
-        $iosInterruptionLevel = $isIncomingCall ? 'time-sensitive' : 'active';
+        $isCallWake = isset($data['type']) && in_array($data['type'], ['incoming_call', 'call_cancelled'], true);
+        $channelId = ($data['type'] ?? null) === 'incoming_call' ? 'incoming-calls' : 'default';
+        $iosInterruptionLevel = $isCallWake ? 'time-sensitive' : 'active';
 
         // Prepare messages for Expo API
         $messages = [];
         foreach ($tokenArray as $token) {
             $payload = [
                 'to' => $token,
-                'sound' => $isIncomingCall ? null : 'default', // CallKeep plays the system ringtone, not the notification sound
-                'title' => $title,
-                'body' => $body,
                 'data' => $data,
                 'priority' => 'high',
                 'channelId' => $channelId,
-                '_displayInForeground' => true,
-                'interruptionLevel' => $iosInterruptionLevel,
-                'ttl' => $isIncomingCall ? 30 : null, // call invites expire fast
             ];
 
-            if ($isIncomingCall) {
-                // Setting _contentAvailable causes APNs to deliver this push as a
-                // silent / background push on iOS, which lets the JS background
-                // notification task fire and trigger CallKit via CallKeep.
-                // On Android the high-priority FCM push also wakes the app for
-                // the same background task.
+            if ($isCallWake) {
+                // Data-only wake: native CallKit/CallKeep + in-app ringtone.
+                // Do not attach title/body/sound or the OS shows a chat-style banner.
+                $payload['contentAvailable'] = true;
                 $payload['_contentAvailable'] = true;
-                // Suppress the regular notification banner; the native incoming
-                // call UI takes over instead.
-                $payload['mutableContent'] = true;
+                $payload['ttl'] = $data['type'] === 'call_cancelled' ? 30 : 45;
+            } else {
+                $payload['sound'] = 'default';
+                $payload['title'] = $title;
+                $payload['body'] = $body;
+                $payload['_displayInForeground'] = true;
+                $payload['interruptionLevel'] = $iosInterruptionLevel;
             }
 
             $messages[] = $payload;
@@ -299,6 +292,20 @@ class ExpoPushNotificationService
         }
         
         return $successCount;
+    }
+
+    /**
+     * High-priority data-only message (no banner / no notification sound).
+     * Wakes CallKeep on Android and stops ringing after hangup.
+     */
+    public function sendDataOnly(User $user, array $data): bool
+    {
+        $user->refresh();
+        if (! $user->expo_push_token) {
+            return false;
+        }
+
+        return $this->send($user->expo_push_token, '', '', $data);
     }
 
     /**

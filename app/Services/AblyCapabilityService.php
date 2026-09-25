@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Call;
 use App\Models\Conversation;
 use App\Models\GameSession;
 use App\Models\Project;
@@ -37,34 +36,15 @@ class AblyCapabilityService
     }
 
     /**
-     * Call inbox + WebRTC channels for pending/ongoing calls the user is in.
+     * Per-user call inbox only. Media runs on Agora; Ably is signaling.
      *
      * @return array<string, list<string>>
      */
     public function callCapabilities(User $user): array
     {
-        $capabilities = [
+        return [
             'call:user:'.$user->id => ['subscribe'],
         ];
-
-        $channelNames = Call::query()
-            ->where(function ($query) use ($user) {
-                $query->where('caller_id', $user->id)
-                    ->orWhere('callee_id', $user->id);
-            })
-            ->whereIn('status', [Call::STATUS_PENDING, Call::STATUS_ONGOING])
-            ->whereNotNull('channel_name')
-            ->pluck('channel_name');
-
-        foreach ($channelNames as $channelName) {
-            $name = trim((string) $channelName);
-            if ($name === '') {
-                continue;
-            }
-            $capabilities['webrtc:'.$name] = ['publish', 'subscribe', 'presence'];
-        }
-
-        return $capabilities;
     }
 
     /**

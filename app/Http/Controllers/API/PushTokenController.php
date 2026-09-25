@@ -10,27 +10,41 @@ use Illuminate\Support\Facades\Log;
 class PushTokenController extends Controller
 {
     /**
-     * Save or update the Expo push token for the authenticated user
+     * Save Expo push token and/or iOS APNs VoIP (PushKit) token.
      */
     public function store(Request $request)
     {
         $user = Auth::guard('sanctum')->user();
-        
-        if (!$user) {
+
+        if (! $user) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        $request->validate([
-            'expo_push_token' => 'required|string',
+        $validated = $request->validate([
+            'expo_push_token' => 'nullable|string|max:255',
+            'apns_voip_token' => 'nullable|string|max:255',
         ]);
 
+        if (empty($validated['expo_push_token']) && empty($validated['apns_voip_token'])) {
+            return response()->json([
+                'message' => 'Provide expo_push_token and/or apns_voip_token.',
+            ], 422);
+        }
+
         try {
-            $user->expo_push_token = $request->expo_push_token;
+            if (! empty($validated['expo_push_token'])) {
+                $user->expo_push_token = $validated['expo_push_token'];
+            }
+            if (! empty($validated['apns_voip_token'])) {
+                // PushKit tokens are hex; normalize.
+                $user->apns_voip_token = strtolower(preg_replace('/\s+/', '', $validated['apns_voip_token']));
+            }
             $user->save();
 
-            Log::info('Expo push token saved', [
+            Log::info('Push tokens saved', [
                 'user_id' => $user->id,
-                'token_preview' => substr($request->expo_push_token, 0, 20) . '...',
+                'has_expo' => ! empty($validated['expo_push_token']),
+                'has_voip' => ! empty($validated['apns_voip_token']),
             ]);
 
             return response()->json([
@@ -38,7 +52,7 @@ class PushTokenController extends Controller
                 'success' => true,
             ]);
         } catch (\Exception $e) {
-            Log::error('Failed to save Expo push token', [
+            Log::error('Failed to save push token', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
             ]);

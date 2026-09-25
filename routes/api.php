@@ -14,7 +14,8 @@ use Illuminate\Http\Request;
 
 
 
-Route::get('/reservations/{id}', [ReservationController::class, 'show']);
+Route::get('/reservations/{id}', [ReservationController::class, 'show'])
+    ->middleware('auth:sanctum');
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
@@ -28,6 +29,14 @@ Route::post('/mobile/login', [MobileAuthController::class, 'login'])
 Route::post('/mobile/forgot-password', [MobileAuthController::class, 'forgot'])
     ->middleware('throttle:mobile-forgot-password');
 
+// Signed close-friends story media (no Sanctum; signature is the auth).
+Route::get('/mobile/stories/{story}/file', [\App\Http\Controllers\API\StoryController::class, 'streamMedia'])
+    ->middleware('signed')
+    ->name('mobile.stories.file');
+Route::get('/mobile/stories/asset', [\App\Http\Controllers\API\StoryController::class, 'streamAsset'])
+    ->middleware('signed')
+    ->name('mobile.stories.asset');
+
 // Mobile app version check (public — no auth required)
 Route::get('/mobile/app-version', [AppVersionController::class, 'show']);
 
@@ -39,9 +48,11 @@ require __DIR__ . '/api/events-info.php';
 require __DIR__ . '/api/internal.php';
 
 Route::get('/users', [ReservationController::class, 'getUserss'])
+    ->middleware('auth:sanctum')
     ->name('admin.api.users');
 
 Route::get('/equipment', [ReservationController::class, 'getEquipment'])
+    ->middleware('auth:sanctum')
     ->name('admin.api.equipment');
 
 Route::get('/places', [PlacesController::class, 'getPlacesJson'])
@@ -103,22 +114,29 @@ Route::middleware('auth:sanctum')->prefix('mobile')->group(function () {
 
     // Stories routes
     Route::get('/stories', [\App\Http\Controllers\API\StoryController::class, 'index'])->name('stories.index');
+    Route::get('/stories/archive', [\App\Http\Controllers\API\StoryController::class, 'archive'])->name('stories.archive');
     Route::post('/stories', [\App\Http\Controllers\API\StoryController::class, 'store'])->name('stories.store');
     Route::post('/stories/{id}/view', [\App\Http\Controllers\API\StoryController::class, 'view'])->name('stories.view');
     Route::delete('/stories/{id}', [\App\Http\Controllers\API\StoryController::class, 'destroy'])->name('stories.destroy');
-    // Phase 2: engagement
     Route::get('/stories/{id}/viewers', [\App\Http\Controllers\API\StoryController::class, 'viewers'])->name('stories.viewers');
     Route::post('/stories/{id}/react', [\App\Http\Controllers\API\StoryController::class, 'react'])->name('stories.react');
     Route::delete('/stories/{id}/react', [\App\Http\Controllers\API\StoryController::class, 'unreact'])->name('stories.unreact');
     Route::post('/stories/{id}/reply', [\App\Http\Controllers\API\StoryController::class, 'reply'])->name('stories.reply');
     Route::post('/stories/{id}/mention-repost', [\App\Http\Controllers\API\StoryController::class, 'mentionRepost'])->name('stories.mentionRepost');
     Route::post('/stories/{id}/capture-event', [\App\Http\Controllers\API\StoryController::class, 'reportCapture'])->name('stories.captureEvent');
+    Route::post('/stories/{id}/report', [\App\Http\Controllers\API\StoryController::class, 'report'])->name('stories.report');
+    Route::post('/stories/{id}/interact', [\App\Http\Controllers\API\StoryController::class, 'interact'])->name('stories.interact');
+    Route::get('/stories/{id}/interactions', [\App\Http\Controllers\API\StoryController::class, 'interactionResults'])->name('stories.interactions');
+    Route::post('/stories/{id}/reshare', [\App\Http\Controllers\API\StoryController::class, 'reshare'])->name('stories.reshare');
+    Route::post('/stories/{id}/share', [\App\Http\Controllers\API\StoryController::class, 'share'])->name('stories.share');
+    Route::post('/story-reports/{id}/accept', [\App\Http\Controllers\API\StoryController::class, 'acceptReport'])->name('stories.acceptReport');
+    Route::post('/story-reports/{id}/refuse', [\App\Http\Controllers\API\StoryController::class, 'refuseReport'])->name('stories.refuseReport');
 
     // Phase 3: highlights
     Route::get('/users/{userId}/highlights', [\App\Http\Controllers\API\HighlightController::class, 'indexForUser'])->name('highlights.indexForUser');
     Route::get('/highlights/{id}', [\App\Http\Controllers\API\HighlightController::class, 'show'])->name('highlights.show');
     Route::post('/highlights', [\App\Http\Controllers\API\HighlightController::class, 'store'])->name('highlights.store');
-    Route::patch('/highlights/{id}', [\App\Http\Controllers\API\HighlightController::class, 'update'])->name('highlights.update');
+    Route::match(['patch', 'put'], '/highlights/{id}', [\App\Http\Controllers\API\HighlightController::class, 'update'])->name('highlights.update');
     Route::delete('/highlights/{id}', [\App\Http\Controllers\API\HighlightController::class, 'destroy'])->name('highlights.destroy');
     Route::post('/highlights/{id}/stories', [\App\Http\Controllers\API\HighlightController::class, 'addStory'])->name('highlights.addStory');
     Route::delete('/highlights/{id}/stories/{storyId}', [\App\Http\Controllers\API\HighlightController::class, 'removeStory'])->name('highlights.removeStory');
@@ -142,5 +160,7 @@ Route::middleware('auth:sanctum')->prefix('mobile')->group(function () {
     Route::get('/calls/{id}', [\App\Http\Controllers\API\CallController::class, 'show'])->name('calls.show');
     Route::post('/calls/{id}/accept', [\App\Http\Controllers\API\CallController::class, 'accept'])->name('calls.accept');
     Route::post('/calls/{id}/reject', [\App\Http\Controllers\API\CallController::class, 'reject'])->name('calls.reject');
+    Route::post('/calls/{id}/cancel', [\App\Http\Controllers\API\CallController::class, 'cancel'])->name('calls.cancel');
     Route::post('/calls/{id}/end', [\App\Http\Controllers\API\CallController::class, 'end'])->name('calls.end');
+    Route::post('/calls/{id}/token', [\App\Http\Controllers\API\CallController::class, 'token'])->name('calls.token');
 });

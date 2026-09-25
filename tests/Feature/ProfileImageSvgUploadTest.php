@@ -26,7 +26,7 @@ beforeEach(function () {
     }
 });
 
-function m6User(array $roles = ['student'], array $overrides = []): User
+function profileSvgUser(array $roles = ['student'], array $overrides = []): User
 {
     return User::factory()->create(array_merge([
         'role' => $roles,
@@ -40,7 +40,7 @@ function m6User(array $roles = ['student'], array $overrides = []): User
 
 function m6Formation(): Formation
 {
-    $coach = m6User(['coach'], ['email' => 'm6.coach.'.uniqid('', true).'@example.com']);
+    $coach = profileSvgUser(['coach'], ['email' => 'm6.coach.'.uniqid('', true).'@example.com']);
 
     return Formation::query()->create([
         'name' => 'M6 Training',
@@ -88,7 +88,7 @@ function m6DeletePublicProfileImage(?string $filename): void
 }
 
 test('svg uploads are rejected on the former mimes landmine paths and are not stored', function (string $field, callable $send) {
-    $user = m6User();
+    $user = profileSvgUser();
 
     $send($user, m6HarmlessSvg())
         ->assertUnprocessable()
@@ -124,7 +124,7 @@ test('svg uploads are rejected on the former mimes landmine paths and are not st
 ]);
 
 test('svg avatar is rejected on admin user store and is not persisted', function () {
-    $admin = m6User(['admin'], ['email' => 'm6.store.admin@example.com']);
+    $admin = profileSvgUser(['admin'], ['email' => 'm6.store.admin@example.com']);
     $formation = m6Formation();
     $email = 'm6.store.svg@example.com';
 
@@ -147,7 +147,7 @@ test('svg avatar is rejected on admin user store and is not persisted', function
 });
 
 test('raster profile and cover uploads still succeed on the former landmine paths', function (string $pathCase) {
-    $user = m6User(['student'], ['email' => 'm6.raster.'.$pathCase.'@example.com']);
+    $user = profileSvgUser(['student'], ['email' => 'm6.raster.'.$pathCase.'@example.com']);
 
     if ($pathCase === 'change-profile-image') {
         test()
@@ -181,7 +181,7 @@ test('raster profile and cover uploads still succeed on the former landmine path
         return;
     }
 
-    $admin = m6User(['admin'], ['email' => 'm6.raster.store.admin@example.com']);
+    $admin = profileSvgUser(['admin'], ['email' => 'm6.raster.store.admin@example.com']);
     $formation = m6Formation();
     $email = 'm6.raster.store.created@example.com';
 
@@ -214,7 +214,7 @@ test('raster profile and cover uploads still succeed on the former landmine path
 ]);
 
 test('svg is still rejected on the other profile and cover upload paths', function (string $field, callable $send) {
-    $user = m6User(['student'], [
+    $user = profileSvgUser(['student'], [
         'email' => 'm6.other.'.uniqid('', true).'@example.com',
         'phone' => '0612345678',
         'invite_source' => 'lionsgeek_adult',

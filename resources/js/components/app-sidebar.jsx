@@ -211,6 +211,13 @@ const getGeneralItems = () => [
         authorizedRoles: ['admin'],
     },
     {
+        id: 'story_reports',
+        title: 'Story Reports',
+        href: '/admin/story-reports',
+        icon: Flag,
+        authorizedRoles: ['admin'],
+    },
+    {
         id: 'appversion',
         title: 'App Version',
         href: '/admin/appversion',

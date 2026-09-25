@@ -81,4 +81,17 @@ return [
         'verify' => env('LIONSGEEK_MA_API_VERIFY', true),
     ],
 
+    // Apple PushKit VoIP (iOS CallKit cold-start ringing).
+    // Create a Key in Apple Developer with Apple Push Notifications enabled,
+    // download the .p8, and set APNS_* env vars. Bundle id must match the app
+    // (topic becomes {bundle_id}.voip).
+    'apns' => [
+        'key_id' => env('APNS_KEY_ID'),
+        'team_id' => env('APNS_TEAM_ID'),
+        'bundle_id' => env('APNS_BUNDLE_ID', 'com.lionsgeek.lionsgeek-mobile'),
+        'key_path' => env('APNS_KEY_PATH'),
+        'key_contents' => env('APNS_KEY_CONTENTS'),
+        'production' => filter_var(env('APNS_PRODUCTION', false), FILTER_VALIDATE_BOOLEAN),
+    ],
+
 ];
