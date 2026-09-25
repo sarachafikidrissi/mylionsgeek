@@ -8,8 +8,8 @@ use App\Services\FaceVerification\FaceVerificationService;
 use Illuminate\Http\UploadedFile;
 
 /**
- * Test-only stub. Production binds RekognitionFaceVerificationService when
- * AWS Rekognition is configured, otherwise UnavailableFaceVerificationService.
+ * Test-only stub. Production binds FacePlusPlusVerificationService when
+ * Face++ is configured, otherwise UnavailableFaceVerificationService.
  */
 final class VerifiedFaceVerificationService implements FaceVerificationService
 {

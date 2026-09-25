@@ -6,7 +6,7 @@ use App\Models\User;
 use Illuminate\Http\UploadedFile;
 
 /**
- * Fail-closed default when Rekognition is not configured.
+ * Fail-closed default when Face++ is not configured.
  * Presence of a valid image is not identity verification.
  */
 class UnavailableFaceVerificationService implements FaceVerificationService

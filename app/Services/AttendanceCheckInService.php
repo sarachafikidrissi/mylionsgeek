@@ -245,7 +245,7 @@ class AttendanceCheckInService
         $result = $this->faceVerifier->verify($user, $livePhoto);
 
         if ($result->allowsCheckIn()) {
-            return 'rekognition';
+            return 'face-match';
         }
 
         if ($result === FaceVerificationResult::Rejected) {

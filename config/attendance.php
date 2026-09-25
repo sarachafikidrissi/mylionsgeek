@@ -35,5 +35,5 @@ return [
     'slot_order' => ['morning', 'lunch', 'evening'],
 
     'day_opens' => 9 * 60 + 30,   // 09:30 — first slot opens
-    'day_closes' => 17 * 60,      // 17:00 — last slot closes
+    'day_closes' => 18 * 60,      // 17:00 — last slot closes
 ];

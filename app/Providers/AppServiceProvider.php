@@ -7,10 +7,9 @@ use App\Models\Reservation;
 use App\Models\ReservationCowork;
 use App\Policies\FormationPolicy;
 use App\Services\FaceVerification\AwsRekognitionClient;
+use App\Services\FaceVerification\FacePlusPlusVerificationService;
 use App\Services\FaceVerification\FaceVerificationService;
-use App\Services\FaceVerification\FaceVerificationSettings;
 use App\Services\FaceVerification\RekognitionClient;
-use App\Services\FaceVerification\RekognitionFaceVerificationService;
 use App\Services\FaceVerification\UnavailableFaceVerificationService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -29,13 +28,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(RekognitionClient::class, AwsRekognitionClient::class);
 
         $this->app->singleton(FaceVerificationService::class, function ($app) {
-            $settings = $app->make(FaceVerificationSettings::class);
-
-            if (! $settings->isProviderReady()) {
+            if (! FacePlusPlusVerificationService::isConfigured()) {
                 return $app->make(UnavailableFaceVerificationService::class);
             }
 
-            return $app->make(RekognitionFaceVerificationService::class);
+            return $app->make(FacePlusPlusVerificationService::class);
         });
     }
 

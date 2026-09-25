@@ -54,6 +54,20 @@ function m8LivePhoto(string $name = 'live_photo.jpg'): Illuminate\Http\UploadedF
     return Illuminate\Http\UploadedFile::fake()->image($name);
 }
 
+function bindFacePlusPlusVerifier(): void
+{
+    config([
+        'face_verification.api_key' => 'testing-facepp-key',
+        'face_verification.api_secret' => 'testing-facepp-secret',
+        'face_verification.api_url' => 'https://api-us.faceplusplus.com/facepp/v3/compare',
+        'face_verification.threshold' => 80,
+    ]);
+
+    Illuminate\Support\Facades\Storage::fake('public');
+
+    app()->forgetInstance(App\Services\FaceVerification\FaceVerificationService::class);
+}
+
 function bindRekognitionFaceVerifier(?Tests\Support\FakeRekognitionClient $client = null): Tests\Support\FakeRekognitionClient
 {
     $client ??= new Tests\Support\FakeRekognitionClient;

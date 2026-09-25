@@ -7,18 +7,15 @@ return [
     | Face verification (attendance check-in)
     |--------------------------------------------------------------------------
     |
-    | Amazon Rekognition CompareFaces returns a similarity score from 0–100.
-    | FACE_VERIFICATION_MIN_SIMILARITY must be calibrated with real on-site
-    | captures before production use. An invalid value fail-closes verification.
+    | Attendance check-in uses Face++ compare against the student's profile
+    | photo (FACEPP_* in config/face_verification.php). Missing Face++ keys
+    | fail-close verification (HTTP 503).
     |
-    | DetectFaces + CompareFaces is 1:1 identity matching against a
-    | staff-enrolled private reference. It is NOT liveness or anti-spoofing.
-    | Printed photos and screen replay can still succeed.
-    |
-    | Do not use users.image as the biometric reference.
-    |
-    | FACE_VERIFICATION_REQUIRED=false skips Rekognition (local/dev without AWS).
+    | FACE_VERIFICATION_REQUIRED=false skips Face++ (local/dev without keys).
     | Keep true in production.
+    |
+    | FACE_VERIFICATION_MIN_SIMILARITY is only used by optional Rekognition
+    | staff enrollment, not by Face++ check-in.
     |
     */
 
